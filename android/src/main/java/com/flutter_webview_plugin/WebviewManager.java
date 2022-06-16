@@ -1,6 +1,8 @@
 package com.flutter_webview_plugin;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -8,11 +10,13 @@ import android.content.Context;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Handler;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
+import android.webkit.PermissionRequest;
 import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -21,6 +25,8 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.provider.MediaStore;
 
+import androidx.annotation.RequiresApi;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import android.database.Cursor;
@@ -49,6 +55,7 @@ class WebviewManager {
     private ValueCallback<Uri> mUploadMessage;
     private ValueCallback<Uri[]> mUploadMessageArray;
     private final static int FILECHOOSER_RESULTCODE = 1;
+    private final static int REQUEST_CAMERA = 100;
     private Uri fileUri;
     private Uri videoUri;
 
@@ -81,6 +88,7 @@ class WebviewManager {
                     }
                     handled = true;
                 }
+
             } else {
                 if (requestCode == FILECHOOSER_RESULTCODE) {
                     Uri result = null;
@@ -95,6 +103,25 @@ class WebviewManager {
                 }
             }
             return handled;
+        }
+
+        public boolean handlePermissionResult(int requestCode, String[] permissions, int[] grantResults) {
+            if (requestCode == REQUEST_CAMERA && ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
+                takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+
+//                    Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
+//                    contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
+//                    contentSelectionIntent.setType("*/*");
+
+//                    Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
+//                    chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
+//                    chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, takePhotoIntent);
+                activity.startActivityForResult(takePhotoIntent, FILECHOOSER_RESULTCODE);
+                return true;
+            }
+            return false;
         }
     }
 
@@ -136,9 +163,9 @@ class WebviewManager {
         webViewClient = new BrowserClient() {
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                if (ignoreSSLErrors){
+                if (ignoreSSLErrors) {
                     handler.proceed();
-                }else {
+                } else {
                     super.onReceivedSslError(view, handler, error);
                 }
             }
@@ -149,11 +176,13 @@ class WebviewManager {
                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
                     switch (keyCode) {
                         case KeyEvent.KEYCODE_BACK:
-                            if (webView.canGoBack()) {
-                                webView.goBack();
-                            } else {
-                                FlutterWebviewPlugin.channel.invokeMethod("onBack", null);
-                            }
+                            Log.d("xing", "onKey: KEYCODE_BACK");
+                            FlutterWebviewPlugin.channel.invokeMethod("onBack", null);
+//                            if (webView.canGoBack()) {
+//                                webView.goBack();
+//                            } else {
+//
+//                            }
                             return true;
                     }
                 }
@@ -209,6 +238,15 @@ class WebviewManager {
 
             }
 
+            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                super.onPermissionRequest(request);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    request.grant(request.getResources());
+                }
+            }
+
             //For Android 5.0+
             public boolean onShowFileChooser(
                     WebView webView, ValueCallback<Uri[]> filePathCallback,
@@ -217,39 +255,37 @@ class WebviewManager {
                     mUploadMessageArray.onReceiveValue(null);
                 }
                 mUploadMessageArray = filePathCallback;
-
-                final String[] acceptTypes = getSafeAcceptedTypes(fileChooserParams);
-                List<Intent> intentList = new ArrayList<Intent>();
                 fileUri = null;
                 videoUri = null;
-                if (acceptsImages(acceptTypes)) {
-                    Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                    fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
-                    takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
-                    intentList.add(takePhotoIntent);
-                }
-                if (acceptsVideo(acceptTypes)) {
-                    Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-                    videoUri = getOutputFilename(MediaStore.ACTION_VIDEO_CAPTURE);
-                    takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri);
-                    intentList.add(takeVideoIntent);
-                }
-                Intent contentSelectionIntent;
-                if (Build.VERSION.SDK_INT >= 21) {
-                    final boolean allowMultiple = fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
-                    contentSelectionIntent = fileChooserParams.createIntent();
-                    contentSelectionIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, allowMultiple);
-                } else {
-                    contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                    contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                    contentSelectionIntent.setType("*/*");
-                }
-                Intent[] intentArray = intentList.toArray(new Intent[intentList.size()]);
 
-                Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
-                chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
-                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
-                activity.startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE);
+                //检查是否有相机权限
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                        //申请相机权限
+                        activity.requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA);
+                        return true;
+                    }
+                }
+
+                Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
+                takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+
+//                Intent contentSelectionIntent;
+//                if (Build.VERSION.SDK_INT >= 21) {
+//                    final boolean allowMultiple = fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
+//                    contentSelectionIntent = fileChooserParams.createIntent();
+//                    contentSelectionIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, allowMultiple);
+//                } else {
+//                    contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
+//                    contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
+//                    contentSelectionIntent.setType("*/*");
+//                }
+
+//                Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
+//                chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
+//                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, takePhotoIntent);
+                activity.startActivityForResult(takePhotoIntent, FILECHOOSER_RESULTCODE);
                 return true;
             }
 
@@ -533,7 +569,7 @@ class WebviewManager {
     /**
      * Clears cache
      */
-    void cleanCache(){
+    void cleanCache() {
         webView.clearCache(true);
     }
 

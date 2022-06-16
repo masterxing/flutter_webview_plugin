@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
+import android.util.Log;
 import android.view.Display;
 import android.webkit.WebStorage;
 import android.widget.FrameLayout;
@@ -27,7 +28,7 @@ import io.flutter.plugin.common.PluginRegistry;
 /**
  * FlutterWebviewPlugin
  */
-public class FlutterWebviewPlugin implements FlutterPlugin, ActivityAware, MethodCallHandler, PluginRegistry.ActivityResultListener {
+public class FlutterWebviewPlugin implements FlutterPlugin, ActivityAware, MethodCallHandler, PluginRegistry.ActivityResultListener,PluginRegistry.RequestPermissionsResultListener {
     private Activity activity;
     private WebviewManager webViewManager;
     private Context context;
@@ -40,6 +41,7 @@ public class FlutterWebviewPlugin implements FlutterPlugin, ActivityAware, Metho
             channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
             final FlutterWebviewPlugin instance = new FlutterWebviewPlugin(registrar.activity(), registrar.activeContext());
             registrar.addActivityResultListener(instance);
+            registrar.addRequestPermissionsResultListener(instance);
             channel.setMethodCallHandler(instance);
         }
     }
@@ -331,6 +333,15 @@ public class FlutterWebviewPlugin implements FlutterPlugin, ActivityAware, Metho
     }
 
     @Override
+    public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        Log.d("xing", "handlePermissionResult:");
+        if (webViewManager != null && webViewManager.resultHandler != null) {
+            return webViewManager.resultHandler.handlePermissionResult(requestCode, permissions, grantResults);
+        }
+        return false;
+    }
+
+    @Override
     public void onAttachedToEngine(FlutterPluginBinding binding) {
         channel = new MethodChannel(binding.getBinaryMessenger(), CHANNEL_NAME);
         context = binding.getApplicationContext();
@@ -350,6 +361,7 @@ public class FlutterWebviewPlugin implements FlutterPlugin, ActivityAware, Metho
     public void onAttachedToActivity(ActivityPluginBinding binding) {
         activity = binding.getActivity();
         binding.addActivityResultListener(this);
+        binding.addRequestPermissionsResultListener(this);
     }
 
     @Override
@@ -366,4 +378,5 @@ public class FlutterWebviewPlugin implements FlutterPlugin, ActivityAware, Metho
     public void onDetachedFromActivity() {
 
     }
+
 }
