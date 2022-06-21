@@ -106,19 +106,20 @@ class WebviewManager {
         }
 
         public boolean handlePermissionResult(int requestCode, String[] permissions, int[] grantResults) {
-            if (requestCode == REQUEST_CAMERA && ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
-                takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+            Log.d("xing", "handlePermissionResult: ");
+            if (requestCode == REQUEST_CAMERA) {
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                    fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
+                    takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
 
-//                    Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
-//                    contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
-//                    contentSelectionIntent.setType("*/*");
-
-//                    Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
-//                    chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
-//                    chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, takePhotoIntent);
-                activity.startActivityForResult(takePhotoIntent, FILECHOOSER_RESULTCODE);
+                    activity.startActivityForResult(takePhotoIntent, FILECHOOSER_RESULTCODE);
+                } else {
+                    if (mUploadMessageArray != null) {
+                        mUploadMessageArray.onReceiveValue(null);
+                        mUploadMessageArray = null;
+                    }
+                }
                 return true;
             }
             return false;
@@ -238,14 +239,14 @@ class WebviewManager {
 
             }
 
-            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-            @Override
-            public void onPermissionRequest(PermissionRequest request) {
-                super.onPermissionRequest(request);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    request.grant(request.getResources());
-                }
-            }
+//            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+//            @Override
+//            public void onPermissionRequest(PermissionRequest request) {
+//                super.onPermissionRequest(request);
+//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+//                    request.grant(request.getResources());
+//                }
+//            }
 
             //For Android 5.0+
             public boolean onShowFileChooser(
@@ -257,35 +258,18 @@ class WebviewManager {
                 mUploadMessageArray = filePathCallback;
                 fileUri = null;
                 videoUri = null;
-
+                Log.d("xing", "onShowFileChooser: ");
                 //检查是否有相机权限
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                        //申请相机权限
-                        activity.requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA);
-                        return true;
-                    }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                    Log.d("xing", "onShowFileChooser: 申请相机权限");
+                    //申请相机权限
+                    activity.requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA);
+                } else {
+                    Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                    fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
+                    takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+                    activity.startActivityForResult(takePhotoIntent, FILECHOOSER_RESULTCODE);
                 }
-
-                Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                fileUri = getOutputFilename(MediaStore.ACTION_IMAGE_CAPTURE);
-                takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
-
-//                Intent contentSelectionIntent;
-//                if (Build.VERSION.SDK_INT >= 21) {
-//                    final boolean allowMultiple = fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
-//                    contentSelectionIntent = fileChooserParams.createIntent();
-//                    contentSelectionIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, allowMultiple);
-//                } else {
-//                    contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
-//                    contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
-//                    contentSelectionIntent.setType("*/*");
-//                }
-
-//                Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
-//                chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
-//                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, takePhotoIntent);
-                activity.startActivityForResult(takePhotoIntent, FILECHOOSER_RESULTCODE);
                 return true;
             }
 
