@@ -3,6 +3,8 @@ package com.flutter_webview_plugin;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -82,6 +84,23 @@ class WebviewManager {
                             results = getSelectedFiles(intent);
                         }
                     }
+                    if (results != null && results.length > 0) {
+                        Uri uri = results[0];
+                        File file = UriUtils.uri2File(activity, uri);
+                        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+                        // 打印出图片的大小
+                        Log.i("xing", "原始图片大小："+bitmap.getByteCount());
+                        //图片尺寸宽高均不小于756不大于2048
+                        Bitmap bitmap1 = ImageUtils.compressBySampleSize(bitmap, Math.max(756, bitmap.getWidth()),
+                                Math.min(2048, bitmap.getHeight()));
+                        //且大小不超过1M的图片
+                        byte[] bytes = ImageUtils.compressByQuality(bitmap1, 1024 * 1024L);
+                        Bitmap bitmap2 = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                        Log.i("xing", "压缩后图片大小：" + bitmap2.getByteCount());
+                        Uri uri1 = Uri.parse(MediaStore.Images.Media.insertImage(activity.getContentResolver(), bitmap2, null, null));
+                        results = new Uri[]{uri1};
+                    }
+
                     if (mUploadMessageArray != null) {
                         mUploadMessageArray.onReceiveValue(results);
                         mUploadMessageArray = null;
