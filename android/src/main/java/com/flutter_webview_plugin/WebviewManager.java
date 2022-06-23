@@ -87,18 +87,20 @@ class WebviewManager {
                     if (results != null && results.length > 0) {
                         Uri uri = results[0];
                         File file = UriUtils.uri2File(activity, uri);
-                        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-                        // 打印出图片的大小
-                        Log.i("xing", "原始图片大小："+bitmap.getByteCount());
-                        //图片尺寸宽高均不小于756不大于2048
-                        Bitmap bitmap1 = ImageUtils.compressBySampleSize(bitmap, Math.max(756, bitmap.getWidth()),
-                                Math.min(2048, bitmap.getHeight()));
-                        //且大小不超过1M的图片
-                        byte[] bytes = ImageUtils.compressByQuality(bitmap1, 1024 * 1024L);
-                        Bitmap bitmap2 = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                        Log.i("xing", "压缩后图片大小：" + bitmap2.getByteCount());
-                        Uri uri1 = Uri.parse(MediaStore.Images.Media.insertImage(activity.getContentResolver(), bitmap2, null, null));
-                        results = new Uri[]{uri1};
+                        if (file!=null){
+                            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+                            // 打印出图片的大小
+                            Log.i("xing", "原始图片大小："+bitmap.getByteCount());
+                            //图片尺寸宽高均不小于756不大于2048
+                            Bitmap bitmap1 = ImageUtils.compressBySampleSize(bitmap, Math.max(756, bitmap.getWidth()),
+                                    Math.min(2048, bitmap.getHeight()));
+                            //且大小不超过1M的图片
+                            byte[] bytes = ImageUtils.compressByQuality(bitmap1, 1000 * 1000L);
+                            Bitmap bitmap2 = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                            Log.i("xing", "压缩后图片大小：" + bitmap2.getByteCount());
+                            Uri uri1 = Uri.parse(MediaStore.Images.Media.insertImage(activity.getContentResolver(), bitmap2, null, null));
+                            results = new Uri[]{uri1};
+                        }
                     }
 
                     if (mUploadMessageArray != null) {
